@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Income Track</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg"></div>
+  <main class="wrap">
+    <header class="hero">
+      <p class="brand">Income Track</p>
+      <h1 id="monthTitle">This month</h1>
+      <p class="sub" id="monthTotal">$0.00</p>
+    </header>
+
+    <section class="panel add" aria-label="Add income">
+      <form id="incomeForm">
+        <label>
+          <span>Date</span>
+          <input type="date" id="date" required />
+        </label>
+        <label>
+          <span>Amount</span>
+          <input type="number" id="amount" min="0.01" step="0.01" placeholder="0.00" required />
+        </label>
+        <label class="grow">
+          <span>Note</span>
+          <input type="text" id="note" placeholder="Optional" maxlength="80" />
+        </label>
+        <button type="submit">Add</button>
+      </form>
+    </section>
+
+    <section class="panel chart" aria-label="Monthly chart">
+      <div class="chart-head">
+        <h2>Daily income</h2>
+        <div class="nav">
+          <button type="button" id="prevMonth" aria-label="Previous month">‹</button>
+          <button type="button" id="nextMonth" aria-label="Next month">›</button>
+        </div>
+      </div>
+      <canvas id="chart" height="120"></canvas>
+    </section>
+
+    <section class="panel list" aria-label="Entries">
+      <h2>Entries</h2>
+      <ul id="entries"></ul>
+      <p class="empty" id="empty">No entries this month.</p>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
