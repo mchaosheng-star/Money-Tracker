@@ -16,7 +16,6 @@
     <header class="hero">
       <p class="brand">Income Track</p>
       <h1 id="monthTitle">This month</h1>
-      <p class="sub" id="monthTotal">$0.00</p>
     </header>
 
     <section class="panel add" aria-label="Add income">
@@ -29,6 +28,11 @@
           <span>Amount</span>
           <input type="number" id="amount" min="0.01" step="0.01" placeholder="0.00" required />
         </label>
+        <label>
+          <span>Category</span>
+          <input type="text" id="category" list="categoryList" placeholder="e.g. Tips" required />
+          <datalist id="categoryList"></datalist>
+        </label>
         <label class="grow">
           <span>Note</span>
           <input type="text" id="note" placeholder="Optional" maxlength="80" />
@@ -39,17 +43,25 @@
 
     <section class="panel chart" aria-label="Monthly chart">
       <div class="chart-head">
-        <h2>Daily income</h2>
+        <h2>By category</h2>
         <div class="nav">
           <button type="button" id="prevMonth" aria-label="Previous month">‹</button>
           <button type="button" id="nextMonth" aria-label="Next month">›</button>
         </div>
       </div>
-      <canvas id="chart" height="120"></canvas>
+      <div class="donut-wrap">
+        <canvas id="chart"></canvas>
+        <div class="donut-center">
+          <span class="donut-label">Total</span>
+          <strong id="monthTotal">$0.00</strong>
+        </div>
+      </div>
     </section>
 
     <section class="panel list" aria-label="Entries">
-      <h2>Entries</h2>
+      <h2>Daily</h2>
+      <canvas id="dailyChart" height="100"></canvas>
+      <h2 class="entries-title">Entries</h2>
       <ul id="entries"></ul>
       <p class="empty" id="empty">No entries this month.</p>
     </section>

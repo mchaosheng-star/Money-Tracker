@@ -1,8 +1,16 @@
 const STORAGE_KEY = "income-track-entries";
+const LAST_CAT_KEY = "income-track-last-category";
+const COLORS = [
+  "#0f6b5c", "#1a8f7a", "#3aa68f", "#6bbf9e",
+  "#c4a35a", "#d4b06a", "#8a9bb5", "#5c7a8a",
+  "#2d6a5a", "#4a9e88", "#b8954a", "#7a8fa3",
+];
 
 const form = document.getElementById("incomeForm");
 const dateInput = document.getElementById("date");
 const amountInput = document.getElementById("amount");
+const categoryInput = document.getElementById("category");
+const categoryList = document.getElementById("categoryList");
 const noteInput = document.getElementById("note");
 const entriesEl = document.getElementById("entries");
 const emptyEl = document.getElementById("empty");
@@ -16,6 +24,7 @@ view.setDate(1);
 view.setHours(0, 0, 0, 0);
 
 dateInput.value = todayISO();
+categoryInput.value = localStorage.getItem(LAST_CAT_KEY) || "";
 
 function todayISO() {
   const d = new Date();
@@ -48,15 +57,39 @@ function monthKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function daysInMonth(d) {
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-}
-
 function entriesForMonth(entries, d) {
   const key = monthKey(d);
   return entries
     .filter((e) => e.date.startsWith(key))
     .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+}
+
+function allCategories(entries) {
+  const set = new Set();
+  for (const e of entries) {
+    if (e.category) set.add(e.category);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+function daysInMonth(d) {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+}
+
+function categorySlices(entries, d) {
+  const key = monthKey(d);
+  const map = new Map();
+  let sum = 0;
+  for (const e of entries) {
+    if (!e.date.startsWith(key)) continue;
+    const cat = e.category || "Other";
+    const amt = Number(e.amount);
+    map.set(cat, (map.get(cat) || 0) + amt);
+    sum += amt;
+  }
+  const labels = [...map.keys()];
+  const data = labels.map((k) => map.get(k));
+  return { labels, data, sum };
 }
 
 function dailyTotals(entries, d) {
@@ -65,13 +98,54 @@ function dailyTotals(entries, d) {
   const key = monthKey(d);
   for (const e of entries) {
     if (!e.date.startsWith(key)) continue;
-    const day = Number(e.date.slice(8, 10));
-    totals[day - 1] += Number(e.amount);
+    totals[Number(e.date.slice(8, 10)) - 1] += Number(e.amount);
   }
   return totals;
 }
 
+function refreshCategoryList() {
+  const cats = allCategories(loadEntries());
+  categoryList.innerHTML = "";
+  for (const c of cats) {
+    const opt = document.createElement("option");
+    opt.value = c;
+    categoryList.append(opt);
+  }
+}
+
 const chart = new Chart(document.getElementById("chart"), {
+  type: "doughnut",
+  data: {
+    labels: [],
+    datasets: [
+      {
+        data: [],
+        backgroundColor: [],
+        borderWidth: 2,
+        borderColor: "#fffaf3",
+        hoverOffset: 6,
+      },
+    ],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    cutout: "68%",
+    plugins: {
+      legend: {
+        position: "bottom",
+        labels: { color: "#5c6b65", boxWidth: 12, padding: 14 },
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => " " + money(ctx.parsed),
+        },
+      },
+    },
+  },
+});
+
+const dailyChart = new Chart(document.getElementById("dailyChart"), {
   type: "bar",
   data: {
     labels: [],
@@ -117,8 +191,8 @@ const chart = new Chart(document.getElementById("chart"), {
 function render() {
   const all = loadEntries();
   const monthEntries = entriesForMonth(all, view);
+  const { labels, data, sum } = categorySlices(all, view);
   const totals = dailyTotals(all, view);
-  const sum = monthEntries.reduce((s, e) => s + Number(e.amount), 0);
 
   monthTitle.textContent = view.toLocaleString(undefined, {
     month: "long",
@@ -126,9 +200,22 @@ function render() {
   });
   monthTotal.textContent = money(sum);
 
-  chart.data.labels = totals.map((_, i) => String(i + 1));
-  chart.data.datasets[0].data = totals;
+  if (data.length === 0) {
+    chart.data.labels = ["No income"];
+    chart.data.datasets[0].data = [1];
+    chart.data.datasets[0].backgroundColor = ["rgba(26, 36, 33, 0.12)"];
+  } else {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = data;
+    chart.data.datasets[0].backgroundColor = data.map((_, i) => COLORS[i % COLORS.length]);
+  }
   chart.update();
+
+  dailyChart.data.labels = totals.map((_, i) => String(i + 1));
+  dailyChart.data.datasets[0].data = totals;
+  dailyChart.update();
+
+  refreshCategoryList();
 
   entriesEl.innerHTML = "";
   emptyEl.classList.toggle("show", monthEntries.length === 0);
@@ -143,9 +230,11 @@ function render() {
       month: "short",
       day: "numeric",
     });
-    const note = document.createElement("span");
-    note.textContent = e.note || "—";
-    meta.append(strong, note);
+    const detail = document.createElement("span");
+    const parts = [e.category || "Other"];
+    if (e.note) parts.push(e.note);
+    detail.textContent = parts.join(" · ");
+    meta.append(strong, detail);
 
     const amt = document.createElement("div");
     amt.className = "amt";
@@ -168,21 +257,25 @@ function render() {
 form.addEventListener("submit", (ev) => {
   ev.preventDefault();
   const amount = Number(amountInput.value);
-  if (!dateInput.value || !(amount > 0)) return;
+  const category = categoryInput.value.trim();
+  if (!dateInput.value || !(amount > 0) || !category) return;
 
   const entries = loadEntries();
   entries.push({
     id: Date.now(),
     date: dateInput.value,
     amount,
+    category,
     note: noteInput.value.trim(),
   });
   saveEntries(entries);
+  localStorage.setItem(LAST_CAT_KEY, category);
 
   const [y, m] = dateInput.value.split("-").map(Number);
   view = new Date(y, m - 1, 1);
   amountInput.value = "";
   noteInput.value = "";
+  categoryInput.value = category;
   render();
 });
 
