@@ -18,10 +18,12 @@ const newCatPanel = document.getElementById("newCatPanel");
 const newCatName = document.getElementById("newCatName");
 const newCatColors = document.getElementById("newCatColors");
 const saveCatBtn = document.getElementById("saveCatBtn");
+const cancelCatBtn = document.getElementById("cancelCatBtn");
 const editColors = document.getElementById("editColors");
 const entriesEl = document.getElementById("entries");
 const emptyEl = document.getElementById("empty");
 const monthTitle = document.getElementById("monthTitle");
+const chartMonth = document.getElementById("chartMonth");
 const monthTotal = document.getElementById("monthTotal");
 const prevBtn = document.getElementById("prevMonth");
 const nextBtn = document.getElementById("nextMonth");
@@ -166,7 +168,7 @@ function renderChips() {
   if (!cats.length) {
     const hint = document.createElement("p");
     hint.className = "cat-hint";
-    hint.textContent = "Tap + New to add a category";
+    hint.textContent = "Tap + to add a category";
     catChips.append(hint);
   }
 
@@ -212,7 +214,17 @@ function openNewCat() {
   newCatName.focus();
 }
 
-addCatBtn.addEventListener("click", openNewCat);
+function closeNewCat() {
+  newCatPanel.classList.add("hidden");
+  newCatName.value = "";
+}
+
+addCatBtn.addEventListener("click", () => {
+  if (newCatPanel.classList.contains("hidden")) openNewCat();
+  else closeNewCat();
+});
+
+cancelCatBtn.addEventListener("click", closeNewCat);
 
 saveCatBtn.addEventListener("click", () => {
   const name = newCatName.value.trim();
@@ -228,7 +240,7 @@ saveCatBtn.addEventListener("click", () => {
   }
   saveCategories(cats);
   localStorage.setItem(LAST_CAT_KEY, selectedCategory);
-  newCatPanel.classList.add("hidden");
+  closeNewCat();
   render();
 });
 
@@ -313,10 +325,12 @@ function updateChartsAndList() {
   const { labels, data, sum, colors } = categorySlices(all, view);
   const totals = dailyTotals(all, view);
 
-  monthTitle.textContent = view.toLocaleString(undefined, {
+  const monthLabel = view.toLocaleString(undefined, {
     month: "long",
     year: "numeric",
   });
+  monthTitle.textContent = monthLabel;
+  chartMonth.textContent = monthLabel;
   monthTotal.textContent = money(sum);
 
   if (data.length === 0) {

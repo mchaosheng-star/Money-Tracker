@@ -36,13 +36,16 @@
         <div class="cat-block">
           <div class="cat-head">
             <span>Category</span>
-            <button type="button" id="addCatBtn" class="link-btn">+ New</button>
+            <button type="button" id="addCatBtn" class="plus-btn" aria-label="Add category">+</button>
           </div>
           <div id="catChips" class="cat-chips" role="listbox" aria-label="Categories"></div>
           <div id="newCatPanel" class="new-cat hidden">
             <input type="text" id="newCatName" placeholder="Category name" maxlength="40" />
             <div id="newCatColors" class="color-row"></div>
-            <button type="button" id="saveCatBtn" class="mini-btn">Save category</button>
+            <div class="new-cat-actions">
+              <button type="button" id="cancelCatBtn" class="ghost-btn">Cancel</button>
+              <button type="button" id="saveCatBtn" class="mini-btn">Save</button>
+            </div>
           </div>
           <div class="color-edit">
             <span>Color</span>
@@ -60,7 +63,10 @@
 
     <section class="panel chart" aria-label="Monthly chart">
       <div class="chart-head">
-        <h2>By category</h2>
+        <div>
+          <h2>By category</h2>
+          <p class="chart-month" id="chartMonth">This month</p>
+        </div>
         <div class="nav">
           <button type="button" id="prevMonth" aria-label="Previous month">‹</button>
           <button type="button" id="nextMonth" aria-label="Next month">›</button>
