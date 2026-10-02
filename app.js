@@ -1,17 +1,24 @@
 const STORAGE_KEY = "income-track-entries";
 const LAST_CAT_KEY = "income-track-last-category";
-const COLORS = [
-  "#0f6b5c", "#1a8f7a", "#3aa68f", "#6bbf9e",
-  "#c4a35a", "#d4b06a", "#8a9bb5", "#5c7a8a",
-  "#2d6a5a", "#4a9e88", "#b8954a", "#7a8fa3",
+const CAT_META_KEY = "income-track-categories";
+
+const PALETTE = [
+  "#0f6b5c", "#1a8f7a", "#2d8cff", "#6b5cff",
+  "#c45a8a", "#d46a4a", "#c4a35a", "#5c7a8a",
+  "#3aa68f", "#8a5a2d", "#4a6fa5", "#b33a2b",
 ];
 
 const form = document.getElementById("incomeForm");
 const dateInput = document.getElementById("date");
 const amountInput = document.getElementById("amount");
-const categoryInput = document.getElementById("category");
-const categoryList = document.getElementById("categoryList");
 const noteInput = document.getElementById("note");
+const catChips = document.getElementById("catChips");
+const addCatBtn = document.getElementById("addCatBtn");
+const newCatPanel = document.getElementById("newCatPanel");
+const newCatName = document.getElementById("newCatName");
+const newCatColors = document.getElementById("newCatColors");
+const saveCatBtn = document.getElementById("saveCatBtn");
+const editColors = document.getElementById("editColors");
 const entriesEl = document.getElementById("entries");
 const emptyEl = document.getElementById("empty");
 const monthTitle = document.getElementById("monthTitle");
@@ -23,8 +30,10 @@ let view = new Date();
 view.setDate(1);
 view.setHours(0, 0, 0, 0);
 
+let selectedCategory = localStorage.getItem(LAST_CAT_KEY) || "";
+let newCatColor = PALETTE[0];
+
 dateInput.value = todayISO();
-categoryInput.value = localStorage.getItem(LAST_CAT_KEY) || "";
 
 function todayISO() {
   const d = new Date();
@@ -46,6 +55,39 @@ function saveEntries(entries) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 
+function loadCategories() {
+  let cats = [];
+  try {
+    cats = JSON.parse(localStorage.getItem(CAT_META_KEY) || "[]");
+  } catch {
+    cats = [];
+  }
+  if (!Array.isArray(cats)) cats = [];
+
+  const names = new Set(cats.map((c) => c.name));
+  const entries = loadEntries();
+  let i = 0;
+  let changed = false;
+  for (const e of entries) {
+    if (!e.category || names.has(e.category)) continue;
+    cats.push({ name: e.category, color: PALETTE[i % PALETTE.length] });
+    names.add(e.category);
+    i++;
+    changed = true;
+  }
+  if (changed) saveCategories(cats);
+  return cats;
+}
+
+function saveCategories(cats) {
+  localStorage.setItem(CAT_META_KEY, JSON.stringify(cats));
+}
+
+function getCatColor(name) {
+  const found = loadCategories().find((c) => c.name === name);
+  return found ? found.color : PALETTE[0];
+}
+
 function money(n) {
   return new Intl.NumberFormat(undefined, {
     style: "currency",
@@ -62,14 +104,6 @@ function entriesForMonth(entries, d) {
   return entries
     .filter((e) => e.date.startsWith(key))
     .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
-}
-
-function allCategories(entries) {
-  const set = new Set();
-  for (const e of entries) {
-    if (e.category) set.add(e.category);
-  }
-  return [...set].sort((a, b) => a.localeCompare(b));
 }
 
 function daysInMonth(d) {
@@ -89,7 +123,8 @@ function categorySlices(entries, d) {
   }
   const labels = [...map.keys()];
   const data = labels.map((k) => map.get(k));
-  return { labels, data, sum };
+  const colors = labels.map((k) => getCatColor(k));
+  return { labels, data, sum, colors };
 }
 
 function dailyTotals(entries, d) {
@@ -103,15 +138,99 @@ function dailyTotals(entries, d) {
   return totals;
 }
 
-function refreshCategoryList() {
-  const cats = allCategories(loadEntries());
-  categoryList.innerHTML = "";
-  for (const c of cats) {
-    const opt = document.createElement("option");
-    opt.value = c;
-    categoryList.append(opt);
+function paintColorRow(el, selected, onPick) {
+  el.innerHTML = "";
+  for (const c of PALETTE) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "swatch" + (c === selected ? " on" : "");
+    b.style.background = c;
+    b.setAttribute("aria-label", c);
+    b.addEventListener("click", () => {
+      onPick(c);
+      paintColorRow(el, c, onPick);
+    });
+    el.append(b);
   }
 }
+
+function renderChips() {
+  const cats = loadCategories();
+  catChips.innerHTML = "";
+
+  if (!selectedCategory && cats.length) selectedCategory = cats[0].name;
+  if (selectedCategory && !cats.some((c) => c.name === selectedCategory) && cats.length) {
+    selectedCategory = cats[0].name;
+  }
+
+  if (!cats.length) {
+    const hint = document.createElement("p");
+    hint.className = "cat-hint";
+    hint.textContent = "Tap + New to add a category";
+    catChips.append(hint);
+  }
+
+  for (const c of cats) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip" + (c.name === selectedCategory ? " on" : "");
+    btn.setAttribute("role", "option");
+    btn.setAttribute("aria-selected", String(c.name === selectedCategory));
+    const dot = document.createElement("i");
+    dot.style.background = c.color;
+    const label = document.createElement("span");
+    label.textContent = c.name;
+    btn.append(dot, label);
+    btn.addEventListener("click", () => {
+      selectedCategory = c.name;
+      localStorage.setItem(LAST_CAT_KEY, c.name);
+      renderChips();
+    });
+    catChips.append(btn);
+  }
+
+  const cur = cats.find((c) => c.name === selectedCategory);
+  paintColorRow(editColors, cur ? cur.color : PALETTE[0], (color) => {
+    if (!selectedCategory) return;
+    const list = loadCategories();
+    const item = list.find((c) => c.name === selectedCategory);
+    if (!item) return;
+    item.color = color;
+    saveCategories(list);
+    renderChips();
+    updateChartsAndList();
+  });
+}
+
+function openNewCat() {
+  newCatPanel.classList.remove("hidden");
+  newCatColor = PALETTE[loadCategories().length % PALETTE.length];
+  newCatName.value = "";
+  paintColorRow(newCatColors, newCatColor, (c) => {
+    newCatColor = c;
+  });
+  newCatName.focus();
+}
+
+addCatBtn.addEventListener("click", openNewCat);
+
+saveCatBtn.addEventListener("click", () => {
+  const name = newCatName.value.trim();
+  if (!name) return;
+  const cats = loadCategories();
+  const existing = cats.find((c) => c.name.toLowerCase() === name.toLowerCase());
+  if (existing) {
+    existing.color = newCatColor;
+    selectedCategory = existing.name;
+  } else {
+    cats.push({ name, color: newCatColor });
+    selectedCategory = name;
+  }
+  saveCategories(cats);
+  localStorage.setItem(LAST_CAT_KEY, selectedCategory);
+  newCatPanel.classList.add("hidden");
+  render();
+});
 
 const chart = new Chart(document.getElementById("chart"), {
   type: "doughnut",
@@ -188,10 +307,10 @@ const dailyChart = new Chart(document.getElementById("dailyChart"), {
   },
 });
 
-function render() {
+function updateChartsAndList() {
   const all = loadEntries();
   const monthEntries = entriesForMonth(all, view);
-  const { labels, data, sum } = categorySlices(all, view);
+  const { labels, data, sum, colors } = categorySlices(all, view);
   const totals = dailyTotals(all, view);
 
   monthTitle.textContent = view.toLocaleString(undefined, {
@@ -207,7 +326,7 @@ function render() {
   } else {
     chart.data.labels = labels;
     chart.data.datasets[0].data = data;
-    chart.data.datasets[0].backgroundColor = data.map((_, i) => COLORS[i % COLORS.length]);
+    chart.data.datasets[0].backgroundColor = colors;
   }
   chart.update();
 
@@ -215,13 +334,16 @@ function render() {
   dailyChart.data.datasets[0].data = totals;
   dailyChart.update();
 
-  refreshCategoryList();
-
   entriesEl.innerHTML = "";
   emptyEl.classList.toggle("show", monthEntries.length === 0);
 
   for (const e of monthEntries) {
     const li = document.createElement("li");
+
+    const dot = document.createElement("i");
+    dot.className = "entry-dot";
+    dot.style.background = getCatColor(e.category || "Other");
+
     const meta = document.createElement("div");
     meta.className = "meta";
     const strong = document.createElement("strong");
@@ -249,33 +371,40 @@ function render() {
       render();
     });
 
-    li.append(meta, amt, del);
+    li.append(dot, meta, amt, del);
     entriesEl.append(li);
   }
+}
+
+function render() {
+  renderChips();
+  updateChartsAndList();
 }
 
 form.addEventListener("submit", (ev) => {
   ev.preventDefault();
   const amount = Number(amountInput.value);
-  const category = categoryInput.value.trim();
-  if (!dateInput.value || !(amount > 0) || !category) return;
+  if (!dateInput.value || !(amount > 0) || !selectedCategory) {
+    if (!selectedCategory) openNewCat();
+    return;
+  }
 
   const entries = loadEntries();
   entries.push({
     id: Date.now(),
     date: dateInput.value,
     amount,
-    category,
+    category: selectedCategory,
     note: noteInput.value.trim(),
   });
   saveEntries(entries);
-  localStorage.setItem(LAST_CAT_KEY, category);
+  localStorage.setItem(LAST_CAT_KEY, selectedCategory);
 
   const [y, m] = dateInput.value.split("-").map(Number);
   view = new Date(y, m - 1, 1);
   amountInput.value = "";
   noteInput.value = "";
-  categoryInput.value = category;
+  amountInput.blur();
   render();
 });
 
