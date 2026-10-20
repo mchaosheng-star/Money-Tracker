@@ -351,6 +351,8 @@ function updateChartsAndList() {
   entriesEl.innerHTML = "";
   emptyEl.classList.toggle("show", monthEntries.length === 0);
 
+  const cats = loadCategories();
+
   for (const e of monthEntries) {
     const li = document.createElement("li");
 
@@ -366,11 +368,41 @@ function updateChartsAndList() {
       month: "short",
       day: "numeric",
     });
-    const detail = document.createElement("span");
-    const parts = [e.category || "Other"];
-    if (e.note) parts.push(e.note);
-    detail.textContent = parts.join(" · ");
-    meta.append(strong, detail);
+
+    const catSelect = document.createElement("select");
+    catSelect.className = "entry-cat";
+    catSelect.setAttribute("aria-label", "Change category");
+    for (const c of cats) {
+      const opt = document.createElement("option");
+      opt.value = c.name;
+      opt.textContent = c.name;
+      if (c.name === (e.category || "Other")) opt.selected = true;
+      catSelect.append(opt);
+    }
+    if (e.category && !cats.some((c) => c.name === e.category)) {
+      const opt = document.createElement("option");
+      opt.value = e.category;
+      opt.textContent = e.category;
+      opt.selected = true;
+      catSelect.append(opt);
+    }
+    catSelect.addEventListener("change", () => {
+      const list = loadEntries();
+      const item = list.find((x) => x.id === e.id);
+      if (!item) return;
+      item.category = catSelect.value;
+      saveEntries(list);
+      render();
+    });
+
+    if (e.note) {
+      const note = document.createElement("span");
+      note.className = "entry-note";
+      note.textContent = e.note;
+      meta.append(strong, catSelect, note);
+    } else {
+      meta.append(strong, catSelect);
+    }
 
     const amt = document.createElement("div");
     amt.className = "amt";
