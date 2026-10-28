@@ -265,7 +265,29 @@ const chart = new Chart(document.getElementById("chart"), {
     plugins: {
       legend: {
         position: "bottom",
-        labels: { color: "#5c6b65", boxWidth: 12, padding: 14 },
+        labels: {
+          color: "#5c6b65",
+          boxWidth: 12,
+          padding: 14,
+          generateLabels(chart) {
+            const data = chart.data;
+            if (!data.labels.length) return [];
+            return data.labels.map((label, i) => {
+              const value = data.datasets[0].data[i];
+              const bg = data.datasets[0].backgroundColor[i];
+              const text =
+                label === "No income" ? label : label + "  " + money(value);
+              return {
+                text,
+                fillStyle: bg,
+                strokeStyle: bg,
+                lineWidth: 0,
+                hidden: false,
+                index: i,
+              };
+            });
+          },
+        },
       },
       tooltip: {
         callbacks: {
